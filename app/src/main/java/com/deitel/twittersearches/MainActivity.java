@@ -5,10 +5,9 @@ package com.deitel.twittersearches;
 
 import java.util.ArrayList;
 import java.util.Collections;
-
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.app.ListActivity;
+import android.app.FragmentManager;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -26,16 +25,44 @@ import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.TextView;
 
-public class MainActivity extends Activity
+public class MainActivity extends Activity implements TwitterList.OnFragmentInteractionListener
 {
    // name of SharedPreferences XML file that stores the saved searches 
    private static final String SEARCHES = "searches";
    
    private EditText queryEditText; // EditText where user enters a query
    private EditText tagEditText; // EditText where user tags a query
-   private SharedPreferences savedSearches; // user's favorite searches
+   public static SharedPreferences savedSearches; // user's favorite searches
    private ArrayList<String> tags; // list of tags for saved searches
    private ArrayAdapter<String> adapter; // binds tags to ListView
+   
+   /*Send long click response information to main activity to choose operation*/
+   @Override
+   public void sendTagToMain(String tag, int which) {
+	   switch (which) {
+       case 0: // share
+           shareSearch(tag);
+           break;
+       case 1: // edit
+           // set EditTexts to match chosen tag and query
+           tagEditText.setText(tag);
+           queryEditText.setText(
+                   savedSearches.getString(tag, ""));
+           break;
+       case 2: // delete
+           deleteSearch(tag);
+           break;
+	   }  	
+   }
+   
+   /*Send url and tag of web to web fragment*/
+   @Override
+   public void sendWebToWebFragment(String url, String tag) {
+		getFragmentManager().beginTransaction()
+		.replace(R.id.fragment_holder, new WebFragment().newInstance(url,tag))
+		.addToBackStack(null)
+		.commit();	
+   }
    
    // SOME Changes _ called when MainActivity is first created
    @Override
@@ -63,7 +90,10 @@ public class MainActivity extends Activity
       ImageButton saveButton = 
          (ImageButton) findViewById(R.id.saveButton);
       saveButton.setOnClickListener(saveButtonListener);
-
+      
+      getFragmentManager().beginTransaction()
+      .add(R.id.fragment_holder,new TwitterList(tags))
+      .commit();
       // MOVE to ListFragment _ register listener that searches Twitter when user touches a tag
       //getListView().setOnItemClickListener(itemClickListener);
       
@@ -71,6 +101,15 @@ public class MainActivity extends Activity
       //getListView().setOnItemLongClickListener(itemLongClickListener);
    } // end method onCreate
 
+   /*function for backing to main interface*/
+   public void onBackPressed(){
+	   FragmentManager fm = getFragmentManager();
+	   if(fm.getBackStackEntryCount()>0){
+		   fm.popBackStack();
+	   }else{
+		   super.onBackPressed();
+	   }		
+   }
    // NO CHANGES _  saveButtonListener saves a tag-query pair into SharedPreferences
    public OnClickListener saveButtonListener = new OnClickListener() 
    {
@@ -89,6 +128,10 @@ public class MainActivity extends Activity
             ((InputMethodManager) getSystemService(
                Context.INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(
                tagEditText.getWindowToken(), 0);  
+
+    		getFragmentManager().beginTransaction()
+    		.replace(R.id.fragment_holder,new TwitterList(tags))
+    		.commit();
          } 
          else // display message asking user to provide a query and a tag
          {
@@ -265,6 +308,10 @@ public class MainActivity extends Activity
 
                // rebind tags ArrayList to ListView to show updated list
                adapter.notifyDataSetChanged();                    
+               
+       			getFragmentManager().beginTransaction()
+       			.replace(R.id.fragment_holder,new TwitterList(tags))
+       			.commit();
             }
          } // end OnClickListener
       ); // end call to setPositiveButton
